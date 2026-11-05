@@ -83,10 +83,11 @@ std::pair<int /*exit code*/, Zstring> zen::consoleExecute(const Zstring& cmdLine
         throw SysErrorTimeOut(_("Operation timed out."));
     }
 
-    const Zstring tmpPath = "T:FreeFileSync-" + formatAsHexString(generateGUID()) + ".out";
-    BPTR out = Open(reinterpret_cast<CONST_STRPTR>(tmpPath.c_str()), MODE_NEWFILE);
+    const std::string tmpName = "T:FreeFileSync-" + formatAsHexString(generateGUID()) + ".out";
+    const Zstring tmpPath(tmpName.c_str());
+    BPTR out = Open(reinterpret_cast<CONST_STRPTR>(tmpName.c_str()), MODE_NEWFILE);
     if (!out)
-        throw SysError(formatDosError("Open(" + tmpPath + ")", IoErr()));
+        throw SysError(formatDosError("Open(" + tmpName + ")", IoErr()));
     BPTR in = Open(reinterpret_cast<CONST_STRPTR>("NIL:"), MODE_OLDFILE);
     const LONG rv = SystemTags(reinterpret_cast<CONST_STRPTR>(cmdLine.c_str()),
                                SYS_Input, in, SYS_Output, out, NP_StackSize, 65536, TAG_END);
