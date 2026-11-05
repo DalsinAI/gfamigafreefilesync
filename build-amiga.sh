@@ -12,7 +12,9 @@ set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "$HERE/ffs.lock"
 STOVE=${STOVE:-"$HOME/AmiCradle/stoves/os32-gcc16-open6"}
-WORK="${WORK:-$HERE/build}"; OUT="${OUT:-$WORK/out}"; JOBS=${JOBS:-12}
+# the build tree lives outside the checkout (Cradle cleans its checkout
+# before every job), so a long build goes on across runs
+WORK="${WORK:-${XDG_CACHE_HOME:-$HOME/.cache}/gfamigafreefilesync/build}"; OUT="${OUT:-$WORK/out}"; JOBS=${JOBS:-12}
 TC="$STOVE/prefix"; PATH="$TC/bin:$PATH"; export PATH
 mkdir -p "$WORK/deps" "$OUT"
 t0=$(date +%s)
