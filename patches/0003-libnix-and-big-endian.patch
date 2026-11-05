@@ -104,7 +104,7 @@ index 79d457f..b8508fe 100644
  #error Where is Glibc?
  #endif
 diff --git a/zen/serialize.h b/zen/serialize.h
-index 77697b2..8f932b1 100644
+index 77697b2..9628f56 100644
 --- a/zen/serialize.h
 +++ b/zen/serialize.h
 @@ -7,6 +7,9 @@
@@ -117,7 +117,21 @@ index 77697b2..8f932b1 100644
  #include <functional>
  #include "sys_error.h"
  //keep header clean from specific stream implementations! (e.g.file_io.h)! used by abstract.h!
-@@ -371,6 +374,15 @@ template <class N, class BufferedOutputStream> inline
+@@ -324,7 +327,13 @@ uint64_t /*streamSize*/ unbufferedStreamCopy(Function1 tryRead /*(void* buffer,
+     const size_t alignment = ::sysconf(_SC_PAGESIZE); //-1 on error => posix_memalign() will fail
+     assert(alignment >= sizeof(void*) && std::has_single_bit(alignment)); //required by posix_memalign()
+     std::byte* buf = nullptr;
++#ifdef __amigaos__ //no posix_memalign; AmigaDOS reads into any buffer
++    (void)alignment;
++    buf = static_cast<std::byte*>(::malloc(bufCapacity));
++    errno = buf ? 0 : ENOMEM;
++#else
+     errno = ::posix_memalign(reinterpret_cast<void**>(&buf), alignment, bufCapacity);
++#endif
+     ZEN_ON_SCOPE_EXIT(::free(buf));
+ 
+     uint64_t streamSize = 0;
+@@ -371,6 +380,15 @@ template <class N, class BufferedOutputStream> inline
  void writeNumber(BufferedOutputStream& stream, const N& num)
  {
      static_assert(isArithmetic<N> || std::is_same_v<N, bool> || std::is_enum_v<N>);
@@ -133,7 +147,7 @@ index 77697b2..8f932b1 100644
      writeArray(stream, &num, sizeof(N));
  }
  
-@@ -404,6 +416,13 @@ N readNumber(BufferedInputStream& stream) //throw SysErrorUnexpectedEos
+@@ -404,6 +422,13 @@ N readNumber(BufferedInputStream& stream) //throw SysErrorUnexpectedEos
      static_assert(isArithmetic<N> || std::is_same_v<N, bool> || std::is_enum_v<N>);
      N num; //uninitialized
      readArray(stream, &num, sizeof(N)); //throw SysErrorUnexpectedEos

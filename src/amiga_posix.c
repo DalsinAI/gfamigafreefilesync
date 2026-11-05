@@ -120,3 +120,8 @@ time_t timegm(struct tm* tm)
         return (time_t)t;
     }
 }
+
+pid_t getsid(pid_t pid)
+{
+    return pid == 0 ? getpid() : pid;
+}

@@ -105,6 +105,9 @@ int getentropy(void* buffer, size_t length);
 int lchown(const char* path, uid_t owner, gid_t group);
 /* UTC struct tm to time_t */
 time_t timegm(struct tm* tm);
+/* no sessions: each process its own, so a lock's owner is "alive" while
+ * kill(pid, 0) says so */
+pid_t getsid(pid_t pid);
 #ifdef __cplusplus
 }
 #endif
