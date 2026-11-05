@@ -13,6 +13,7 @@
 #include "afs/sftp.h"
 #include "afs/gdrive.h"
 #include "afs/native.h"
+#include "afs/concrete.h"
 #include <zen/http.h>
 
 using namespace zen;

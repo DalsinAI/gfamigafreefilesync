@@ -19,9 +19,26 @@
 #include "amiga_util.h"
 #include <proto/exec.h>
 #include <proto/dos.h>
-#include <proto/workbench.h>
 #include <dos/dostags.h>
-#include <workbench/workbench.h>
+#include <utility/tagitem.h>
+
+namespace
+{
+//workbench.library 44 OpenWorkbenchObjectA(name a0, tags a1), LVO -96; called
+//directly, since the stove's NDK headers stop at workbench.library 39
+LONG wbOpenObject(struct Library* wbBase, const char* name)
+{
+    register LONG d0 __asm("d0");
+    register struct Library* a6 __asm("a6") = wbBase;
+    register const char* a0 __asm("a0") = name;
+    register const struct TagItem* a1 __asm("a1") = nullptr;
+    __asm volatile ("jsr -96(%%a6)"
+                    : "=r"(d0), "+r"(a0), "+r"(a1)
+                    : "r"(a6)
+                    : "d1", "cc", "memory");
+    return d0;
+}
+}
 
 using namespace zen;
 
@@ -92,7 +109,7 @@ void zen::openWithDefaultApp(const Zstring& itemPath) //throw FileError
     struct Library* WorkbenchBase = OpenLibrary(reinterpret_cast<CONST_STRPTR>("workbench.library"), 44);
     if (WorkbenchBase)
     {
-        const BOOL ok = OpenWorkbenchObjectA(reinterpret_cast<STRPTR>(const_cast<char*>(itemPath.c_str())), nullptr);
+        const BOOL ok = wbOpenObject(WorkbenchBase, itemPath.c_str()) != 0;
         CloseLibrary(WorkbenchBase);
         if (ok)
             return;
