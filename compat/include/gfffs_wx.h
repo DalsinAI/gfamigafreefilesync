@@ -13,6 +13,42 @@
 #ifdef __cplusplus
 #include <memory>
 #include <wx/settings.h>
+#include <wx/dcclient.h>
+#include <wx/aui/framemanager.h>
+
+/* wx 3.3 names: a DC only for measuring text, and one for a window */
+using wxReadOnlyDC = wxDC;
+class wxInfoDC : public wxClientDC
+{
+public:
+    explicit wxInfoDC(wxWindow* win) : wxClientDC(win) {}
+};
+
+/* the openlayout port draws in pixels that are the logical ones */
+#ifndef wxHAS_DPI_INDEPENDENT_PIXELS
+#define wxHAS_DPI_INDEPENDENT_PIXELS
+#endif
+
+/* FreeFileSync's wx patch adds a grid line colour */
+#ifndef wxSYS_COLOUR_GRIDLINES
+#define wxSYS_COLOUR_GRIDLINES wxSYS_COLOUR_3DLIGHT
+#endif
+
+/* wx 3.3's wxAuiPaneInfoArray is a std::vector; 3.2's is an object array */
+struct gfffsPaneRange
+{
+    wxAuiPaneInfoArray& a;
+    struct It
+    {
+        wxAuiPaneInfoArray* a; size_t i;
+        wxAuiPaneInfo& operator*() const { return a->Item(i); }
+        It& operator++() { ++i; return *this; }
+        bool operator!=(const It& o) const { return i != o.i; }
+    };
+    It begin() const { return { &a, 0 }; }
+    It end() const { return { &a, a.GetCount() }; }
+};
+inline gfffsPaneRange gfffsPanes(wxAuiPaneInfoArray& a) { return { a }; }
 
 struct wxColorHook
 {

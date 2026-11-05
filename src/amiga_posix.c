@@ -98,3 +98,25 @@ int statfs(const char* path, struct statfs* buf)
     UnLock(lock);
     return 0;
 }
+
+/* timegm: UTC broken-down time to seconds since 1970 (days from the civil
+ * date, Howard Hinnant's algorithm), with tm_mon/tm_sec out of range
+ * folded first as mktime does */
+time_t timegm(struct tm* tm)
+{
+    long long y = tm->tm_year + 1900LL;
+    long long mon = tm->tm_mon;
+    y += mon / 12; mon %= 12;
+    if (mon < 0) { mon += 12; --y; }
+    {
+        const long long m = mon + 1;              /* 1..12 */
+        const long long yy = y - (m <= 2);
+        const long long era = (yy >= 0 ? yy : yy - 399) / 400;
+        const long long yoe = yy - era * 400;
+        const long long doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + tm->tm_mday - 1;
+        const long long doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+        const long long days = era * 146097 + doe - 719468;
+        const long long t = days * 86400 + tm->tm_hour * 3600LL + tm->tm_min * 60LL + tm->tm_sec;
+        return (time_t)t;
+    }
+}

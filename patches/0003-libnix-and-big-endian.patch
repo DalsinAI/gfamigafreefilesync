@@ -1,0 +1,180 @@
+diff --git a/FreeFileSync/Source/afs/native.cpp b/FreeFileSync/Source/afs/native.cpp
+index 6cf0fdc..c4332f5 100644
+--- a/FreeFileSync/Source/afs/native.cpp
++++ b/FreeFileSync/Source/afs/native.cpp
+@@ -42,7 +42,7 @@ void initComForThread() //throw FileError
+ inline
+ AFS::FingerPrint getFileFingerprint(FileIndex fileIndex)
+ {
+-    static_assert(sizeof(fileIndex) == sizeof(AFS::FingerPrint));
++    static_assert(sizeof(fileIndex) <= sizeof(AFS::FingerPrint)); //AmigaOS: 32-bit ino_t (the file's header block)
+     return fileIndex; //== 0 if not supported
+     /*  File details
+         ------------
+@@ -85,7 +85,7 @@ NativeFileInfo getNativeFileInfo(FileBase& file) //throw FileError
+     const struct stat& fileInfo = file.getStatBuffered(); //throw FileError
+     return
+     {
+-        fileInfo.st_mtim,
++        GFFFS_ST_MTIM(fileInfo),
+         makeUnsigned(fileInfo.st_size),
+         getFileFingerprint(fileInfo.st_ino)
+     };
+diff --git a/FreeFileSync/Source/application.cpp b/FreeFileSync/Source/application.cpp
+index ce1578c..de7a36c 100644
+--- a/FreeFileSync/Source/application.cpp
++++ b/FreeFileSync/Source/application.cpp
+@@ -163,10 +163,12 @@ bool Application::OnInit()
+     /* we're a GUI app: ignore SIGHUP when the parent terminal quits! (or process is killed!)
+         => the FFS launcher will still be killed => fine
+         => macOS: apparently not needed! interestingly the FFS launcher does receive SIGHUP and *is* killed  */
++#ifndef __amigaos__ //AmigaOS: no SIGHUP, a Shell that closes doesn't end the programs it started
+     if (sighandler_t oldHandler = ::signal(SIGHUP, SIG_IGN);
+         oldHandler == SIG_ERR)
+         logExtraError(_("Error during process initialization.") + L"\n\n" + formatSystemError("signal(SIGHUP)", getLastError()));
+     else assert(!oldHandler);
++#endif
+ 
+ 
+     //Windows User Experience Interaction Guidelines: tool tips should have 5s timeout, info tips no timeout => compromise:
+diff --git a/FreeFileSync/Source/base/db_file.cpp b/FreeFileSync/Source/base/db_file.cpp
+index ea499cb..f313d4c 100644
+--- a/FreeFileSync/Source/base/db_file.cpp
++++ b/FreeFileSync/Source/base/db_file.cpp
+@@ -43,7 +43,7 @@ using DbStreams = std::unordered_map<UniqueId, SessionData>; //list of streams b
+ template <SelectSide side> inline
+ AbstractPath getDatabaseFilePath(const BaseFolderPair& baseFolder)
+ {
+-    static_assert(std::endian::native == std::endian::little);
++    //big-endian (68k): zen/serialize.h writes and reads numbers little-endian, so the database files are the same as on Windows, Linux, macOS
+     /* Windows, Linux, macOS considerations for uniform database format:
+         - different file IDs: no, but the volume IDs are different!
+         - problem with case sensitivity: no
+diff --git a/zen/file_access.cpp b/zen/file_access.cpp
+index 3194935..debb622 100644
+--- a/zen/file_access.cpp
++++ b/zen/file_access.cpp
+@@ -665,7 +665,7 @@ void zen::copySymlink(const Zstring& sourcePath, const Zstring& targetPath) //th
+     if (::lstat(sourcePath.c_str(), &sourceInfo) != 0)
+         THROW_LAST_FILE_ERROR(replaceCpy(_("Cannot read file attributes of %x."), L"%x", fmtPath(sourcePath)), "lstat");
+ 
+-    setWriteTimeNative(targetPath, sourceInfo.st_mtim, ProcSymlink::asLink); //throw FileError
++    setWriteTimeNative(targetPath, GFFFS_ST_MTIM(sourceInfo), ProcSymlink::asLink); //throw FileError
+ }
+ 
+ 
+@@ -745,7 +745,7 @@ FileCopyResult zen::copyNewFile(const Zstring& sourceFile, const Zstring& target
+     const timespec newTimes[2]
+     {
+         {.tv_sec = ::time(nullptr)}, //access time; don't use UTIME_NOW/UTIME_OMIT: more bugs! https://freefilesync.org/forum/viewtopic.php?t=1701
+-        sourceInfo.st_mtim,
++        GFFFS_ST_MTIM(sourceInfo),
+     };
+     ::futimens(fileOut.getHandle(), newTimes);
+ 
+@@ -764,14 +764,14 @@ FileCopyResult zen::copyNewFile(const Zstring& sourceFile, const Zstring& target
+             Linux: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=340236
+                    http://comments.gmane.org/gmane.linux.file-systems.cifs/2854
+             macOS: https://freefilesync.org/forum/viewtopic.php?t=356             */
+-        setWriteTimeNative(targetFile, sourceInfo.st_mtim, ProcSymlink::follow); //throw FileError
++        setWriteTimeNative(targetFile, GFFFS_ST_MTIM(sourceInfo), ProcSymlink::follow); //throw FileError
+     }
+     catch (const FileError& e) { errorModTime = e; /*might slice derived class?*/ }
+ 
+     return
+     {
+         .fileSize      = makeUnsigned(sourceInfo.st_size),
+-        .sourceModTime = sourceInfo.st_mtim,
++        .sourceModTime = GFFFS_ST_MTIM(sourceInfo),
+         .sourceFileIdx = sourceInfo.st_ino,
+         .targetFileIdx = targetFileIdx,
+         .errorModTime  = errorModTime,
+diff --git a/zen/guid.h b/zen/guid.h
+index 79d457f..b8508fe 100644
+--- a/zen/guid.h
++++ b/zen/guid.h
+@@ -20,6 +20,9 @@ std::string generateGUID() //creates a 16-byte GUID
+ {
+     std::string guid(16, '\0');
+ 
++#ifdef __amigaos__ //getentropy(): src/amiga_posix.c
++#define __GLIBC_PREREQ(a, b) 1
++#endif
+ #ifndef __GLIBC_PREREQ
+ #error Where is Glibc?
+ #endif
+diff --git a/zen/serialize.h b/zen/serialize.h
+index 77697b2..8f932b1 100644
+--- a/zen/serialize.h
++++ b/zen/serialize.h
+@@ -7,6 +7,9 @@
+ #ifndef SERIALIZE_H_839405783574356
+ #define SERIALIZE_H_839405783574356
+ 
++#include <bit>
++#include <cstring>
++#include <algorithm>
+ #include <functional>
+ #include "sys_error.h"
+ //keep header clean from specific stream implementations! (e.g.file_io.h)! used by abstract.h!
+@@ -371,6 +374,15 @@ template <class N, class BufferedOutputStream> inline
+ void writeNumber(BufferedOutputStream& stream, const N& num)
+ {
+     static_assert(isArithmetic<N> || std::is_same_v<N, bool> || std::is_enum_v<N>);
++    if constexpr (std::endian::native == std::endian::big && sizeof(N) > 1)
++    {
++        //big-endian CPUs (68k): little-endian on disk, as every other FreeFileSync writes it
++        unsigned char buf[sizeof(N)];
++        std::memcpy(buf, &num, sizeof(N));
++        std::reverse(buf, buf + sizeof(N));
++        writeArray(stream, buf, sizeof(N));
++    }
++    else
+     writeArray(stream, &num, sizeof(N));
+ }
+ 
+@@ -404,6 +416,13 @@ N readNumber(BufferedInputStream& stream) //throw SysErrorUnexpectedEos
+     static_assert(isArithmetic<N> || std::is_same_v<N, bool> || std::is_enum_v<N>);
+     N num; //uninitialized
+     readArray(stream, &num, sizeof(N)); //throw SysErrorUnexpectedEos
++    if constexpr (std::endian::native == std::endian::big && sizeof(N) > 1)
++    {
++        unsigned char buf[sizeof(N)];
++        std::memcpy(buf, &num, sizeof(N));
++        std::reverse(buf, buf + sizeof(N));
++        std::memcpy(&num, buf, sizeof(N));
++    }
+     return num;
+ }
+ 
+diff --git a/zen/shutdown.cpp b/zen/shutdown.cpp
+index 5c72964..b2ee9f5 100644
+--- a/zen/shutdown.cpp
++++ b/zen/shutdown.cpp
+@@ -52,7 +52,11 @@ void zen::suspendSystem() //throw FileError
+ 
+ void zen::terminateProcess(int exitCode)
+ {
+-    std::quick_exit(exitCode); //[[noreturn]]; "Causes normal program termination to occur without completely cleaning the resources." => perfect
++#ifdef __amigaos__
++    ::_exit(exitCode); //libnix has no quick_exit
++#else
++    std::quick_exit(exitCode); //[[noreturn]]
++#endif; "Causes normal program termination to occur without completely cleaning the resources." => perfect
+ 
+ 
+     for (;;) //why still here?? => crash deliberately!
+diff --git a/zen/string_base.h b/zen/string_base.h
+index b19b485..8a8f2ba 100644
+--- a/zen/string_base.h
++++ b/zen/string_base.h
+@@ -189,7 +189,9 @@ private:
+             length  (static_cast<uint32_t>(len)),
+             capacity(static_cast<uint32_t>(cap))
+         {
++#ifndef __mc68000__ //68k: GCC's 32-bit atomics are libatomic calls
+             static_assert(decltype(refCount)::is_always_lock_free);
++#endif
+         }
+ 
+         std::atomic<uint32_t> refCount{1}; //std:atomic is uninitialized by default!

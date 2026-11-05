@@ -39,6 +39,55 @@
 #ifndef EOPNOTSUPP
 #define EOPNOTSUPP 95
 #endif
+/* Linux errno names FreeFileSync's error text knows; libnix never sets
+ * them, so each only needs its own number for the switch cases */
+#ifndef ERESTART
+#define ERESTART 1001
+#endif
+#ifndef EUCLEAN
+#define EUCLEAN 1002
+#endif
+#ifndef ENOTNAM
+#define ENOTNAM 1003
+#endif
+#ifndef ENAVAIL
+#define ENAVAIL 1004
+#endif
+#ifndef EISNAM
+#define EISNAM 1005
+#endif
+#ifndef EREMOTEIO
+#define EREMOTEIO 1006
+#endif
+#ifndef EMEDIUMTYPE
+#define EMEDIUMTYPE 1007
+#endif
+#ifndef ENOKEY
+#define ENOKEY 1008
+#endif
+#ifndef EKEYEXPIRED
+#define EKEYEXPIRED 1009
+#endif
+#ifndef EKEYREVOKED
+#define EKEYREVOKED 1010
+#endif
+#ifndef EKEYREJECTED
+#define EKEYREJECTED 1011
+#endif
+#ifndef ERFKILL
+#define ERFKILL 1012
+#endif
+#ifndef EHWPOISON
+#define EHWPOISON 1013
+#endif
+
+/* temporary files go to T: */
+#ifndef P_tmpdir
+#define P_tmpdir "T:"
+#endif
+
+/* libnix's struct stat has whole seconds only (st_mtime) */
+#define GFFFS_ST_MTIM(st) (timespec{ (st).st_mtime, 0 })
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,6 +103,8 @@ int posix_fadvise(int fd, off_t offset, off_t len, int advice);
 int getentropy(void* buffer, size_t length);
 /* no owners on AmigaOS: 0 */
 int lchown(const char* path, uid_t owner, gid_t group);
+/* UTC struct tm to time_t */
+time_t timegm(struct tm* tm);
 #ifdef __cplusplus
 }
 #endif

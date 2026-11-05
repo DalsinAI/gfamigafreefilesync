@@ -125,7 +125,7 @@ std::string urlEncode(const std::string_view& s)
     static const char hex[] = "0123456789ABCDEF";
     std::string out;
     for (const unsigned char c : s)
-        if (isAsciiAlpha(c) || isDigit(c) || c == '-' || c == '.' || c == '_' || c == '~')
+        if (isAsciiAlpha(static_cast<char>(c)) || isDigit(static_cast<char>(c)) || c == '-' || c == '.' || c == '_' || c == '~')
             out += static_cast<char>(c);
         else if (c == ' ')
             out += '+';

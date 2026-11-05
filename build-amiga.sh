@@ -90,7 +90,7 @@ SKIP="afs/ftp.cpp afs/gdrive.cpp afs/sftp.cpp afs/init_curl_libssh2.cpp ../../li
       ../../zen/sys_info.cpp ../../zen/sys_version.cpp ../../zen/process_exec.cpp
       ../../zen/recycler.cpp ../../zen/process_priority.cpp"
 OURS="net_none sys_info_amiga sys_version_amiga process_exec_amiga recycler_amiga
-      process_priority_amiga icon_loader_amiga version_check_amiga"
+      process_priority_amiga icon_loader_amiga version_check_amiga taskbar_amiga"
 LATE=""
 if m68k-amigaos-gcc -fno-late-combine-instructions -S -o /dev/null -x c /dev/null 2>/dev/null; then LATE="-fno-late-combine-instructions"; fi
 CF="-noixemul -m68040 -O2 -fno-delete-null-pointer-checks $LATE -DNDEBUG"
