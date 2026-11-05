@@ -9,6 +9,6 @@ FFS_COMMIT=bcba63f87e3973e405fb1390a93e70affe1b0ced
 # GFOpenWX Toolkit with wx's aui library (branch team3/wx-aui-20261105)
 WXT_REPO=https://github.com/DalsinAI/gfopenwxtoolkit
 WXT_COMMIT=003296ab3780760e61cd1217d22e568bd11d3add
-# fpuauto (common/fpuauto): the FPU when there is one (branch team3/fpuauto-20261105)
+# fpuauto (common/fpuauto): the FPU when there is one (main, PR #629 merged)
 FPA_REPO=https://github.com/DalsinAI/amicradle-guest
-FPA_COMMIT=4a784c84b878fe0e9abade7006e67e1ded9b165c
+FPA_COMMIT=462f3a3ccb4cea314e1bb7f7cfaebda266073233
