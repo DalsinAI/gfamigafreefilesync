@@ -176,6 +176,8 @@ m68k-amigaos-strip -o "$D/FreeFileSync" "$O/FreeFileSync.debug"
 for r in Icons.zip Languages.zip bell.wav bell2.wav ding.wav fail.wav fail2.wav gong.wav harp.wav notify.wav notify2.wav remind.wav; do
     [ -f "$SRC/FreeFileSync/Build/Resources/$r" ] && cp "$SRC/FreeFileSync/Build/Resources/$r" "$D/Resources/"
 done
+python3 -I "$HERE/scripts/make-icon.py" "$D/FreeFileSync.info"
+cp "$HERE/README.md" "$D/ReadMe"; cp "$HERE/LICENSE" "$D/LICENSE"
 ls -l "$D" "$D/Resources"
 echo "fpuauto: $(m68k-amigaos-nm "$O/FreeFileSync.debug" | grep -c ' T ___wrap_') wrapped routines"
 # a lab hang: debug/find.txt holds code bytes from the runtime's profile
@@ -183,4 +185,8 @@ if [ -s "$HERE/debug/find.txt" ]; then
     m68k-amigaos-nm -n -C "$O/FreeFileSync.debug" > "$O/nm.txt"
     python3 "$HERE/scripts/whereis.py" "$O/FreeFileSync.debug" "$O/nm.txt" $(grep -v '^#' "$HERE/debug/find.txt")
 fi
+# --- the release archive -----------------------------------------------------
+. "$HERE/release.lock"
+python3 -I "$HERE/tools/mklha.py" "$D" "$OUT/GFAmigaFreeFileSync-$RELEASE.lha"
+( cd "$OUT" && sha256sum "GFAmigaFreeFileSync-$RELEASE.lha" > SHA256SUMS && cat SHA256SUMS )
 echo "total: $(( $(date +%s) - t0 )) s"

@@ -14,6 +14,7 @@
 #include <proto/dos.h>
 #include <dos/dos.h>
 #include <unistd.h>
+#include <cstdio>
 
 using namespace zen;
 
@@ -59,7 +60,11 @@ Zstring zen::getProcessPath() //throw FileError
 {
     const Zstring dir = lockName(GetProgramDir());
     char name[256] = {};
-    if (dir.empty() || !GetProgramName(reinterpret_cast<STRPTR>(name), sizeof name))
+    //a Workbench start has no CLI, so no program name: the process carries it
+    if (!GetProgramName(reinterpret_cast<STRPTR>(name), sizeof name) || !name[0])
+        if (const char* taskName = FindTask(nullptr)->tc_Node.ln_Name)
+            std::snprintf(name, sizeof name, "%s", taskName);
+    if (dir.empty() || !name[0])
         throw FileError(_("Cannot get process information."), L"GetProgramDir/GetProgramName");
     return appendPath(dir, Zstring(FilePart(reinterpret_cast<STRPTR>(name))));
 }
