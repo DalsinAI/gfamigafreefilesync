@@ -1,8 +1,8 @@
 diff --git a/FreeFileSync/Source/application.cpp b/FreeFileSync/Source/application.cpp
-index c6f565d..ebcf571 100644
+index c6f565d..aca9246 100644
 --- a/FreeFileSync/Source/application.cpp
 +++ b/FreeFileSync/Source/application.cpp
-@@ -45,7 +45,24 @@ using namespace fff;
+@@ -45,7 +45,26 @@ using namespace fff;
      GLOBAL_RUN_ONCE(::gdk_set_allowed_backends("x11,*")); //call *before* gtk_init()
  #endif
  
@@ -19,6 +19,8 @@ index c6f565d..ebcf571 100644
 +        argc = 1;
 +        argv = wbArgv;
 +    }
++    //a release build, as FreeFileSync's own: wx's debug alerts stay out
++    wxDISABLE_DEBUG_SUPPORT();
 +    return wxEntry(argc, argv);
 +}
 +#else
