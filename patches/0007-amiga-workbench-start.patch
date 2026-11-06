@@ -1,0 +1,29 @@
+diff --git a/FreeFileSync/Source/application.cpp b/FreeFileSync/Source/application.cpp
+index c6f565d..ebcf571 100644
+--- a/FreeFileSync/Source/application.cpp
++++ b/FreeFileSync/Source/application.cpp
+@@ -45,7 +45,24 @@ using namespace fff;
+     GLOBAL_RUN_ONCE(::gdk_set_allowed_backends("x11,*")); //call *before* gtk_init()
+ #endif
+ 
++#ifdef __amigaos__
++wxIMPLEMENT_APP_NO_MAIN(Application);
++
++//a Workbench start gives argc 0 and the WBStartup message in place of argv
++int main(int argc, char* argv[])
++{
++    static char progName[] = "FreeFileSync";
++    static char* wbArgv[] = { progName, nullptr };
++    if (argc == 0)
++    {
++        argc = 1;
++        argv = wbArgv;
++    }
++    return wxEntry(argc, argv);
++}
++#else
+ IMPLEMENT_APP(Application)
++#endif
+ 
+ 
+ namespace

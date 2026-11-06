@@ -6,7 +6,7 @@ FreeFileSync 14.9 is fetched at build time at the commit `ffs.lock` pins, and `p
 
 ## Status
 
-Port in progress: not yet built or run on an Amiga.
+0.1.0 RC1 (6 November 2026). Lab-tested on AmigaOS 3.2 (68040): a batch mirror between two folders, a second sync after changes (only the changed files go), and the main window.
 
 This first version compares and syncs folders on the Amiga's own volumes (hard drives, CF and SD cards, network shares a file system mounts). FreeFileSync's FTP, SFTP and Google Drive clients need libcurl, libssh2 and OpenSSL, and are not in this build.
 
@@ -26,11 +26,12 @@ The first run fetches the GFOpenWX Toolkit and fpuauto at the commits `ffs.lock`
 | `src/` | in place of FreeFileSync's Linux files: system information, running commands (SystemTags, Workbench's "open"), the recycle bin (the volume's Trashcan drawer), icons, task priority; the network parts left out (`net_none.cpp`) |
 | `src/amiga_glib.c`, `src/amiga_posix.c` | the GLib and POSIX calls FreeFileSync makes that AmigaOS and libnix lack: case and Unicode forms of names, file dates through SetFileDate, free space through Info |
 | `compat/include/` | the headers those calls need, and a plain-text stand-in for wxRichTextCtrl |
-| `scripts/` | the 68040 soft-float link specs |
+| `scripts/` | the 68040 soft-float link specs, the tool icon |
+| `tools/` | the release archive, packed with AmiCradle's own LhA writer |
 
 ## Installing
 
-Copy the `FreeFileSync` drawer anywhere. FreeFileSync keeps its settings and logs in `Settings/` inside that drawer.
+Unpack `GFAmigaFreeFileSync-0.1.0-RC1.lha` anywhere (`lha x GFAmigaFreeFileSync-0.1.0-RC1.lha Work:`) and double-click `FreeFileSync`, or start it from a Shell. A batch job runs with its file as the argument: `FreeFileSync Work:Jobs/mirror.ffs_batch`. FreeFileSync keeps its settings and logs in `Settings/` inside its drawer.
 
 ## Licence
 
