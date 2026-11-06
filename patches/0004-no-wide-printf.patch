@@ -1,0 +1,61 @@
+diff --git a/zen/format_unit.cpp b/zen/format_unit.cpp
+index 7094976..2053e4d 100644
+--- a/zen/format_unit.cpp
++++ b/zen/format_unit.cpp
+@@ -182,7 +182,13 @@ std::wstring zen::formatUtcToLocalTime(time_t utcTime)
+             tc != TimeComp())
+         {
+             wchar_t buf[128] = {}; //the only way to format abnormally large or invalid modTime: std::strftime() will fail!
+-            if (const int rv = std::swprintf(buf, std::size(buf), L"%d-%02d-%02d  %02d:%02d:%02d GMT", tc.year, tc.month, tc.day, tc.hour, tc.minute, tc.second);
++            if (const int rv =
++#ifdef __amigaos__
++                    impl::saferPrintfW
++#else
++                    std::swprintf
++#endif
++                    (buf, std::size(buf), L"%d-%02d-%02d  %02d:%02d:%02d GMT", tc.year, tc.month, tc.day, tc.hour, tc.minute, tc.second);
+                 0 < rv && rv < std::ssize(buf))
+                 return std::wstring(buf, rv);
+         }
+diff --git a/zen/string_tools.h b/zen/string_tools.h
+index 0eaf710..1aca340 100644
+--- a/zen/string_tools.h
++++ b/zen/string_tools.h
+@@ -647,9 +647,37 @@ int saferPrintf(char* buffer, size_t bufferSize, const char* format, const Num&
+     return std::snprintf(buffer, bufferSize, format, number); //C99: returns number of chars written if successful, < 0 or >= bufferSize on error
+ }
+ 
++#ifdef __amigaos__
++//libnix's wide printf doesn't return (a loop in vfwprintf): the format and
++//the number are ASCII, so print narrow and widen
++template <class... Args> inline
++int saferPrintfW(wchar_t* buffer, size_t bufferSize, const wchar_t* format, const Args&... args)
++{
++    char fmt[64];
++    size_t i = 0;
++    for (; format[i] != 0; ++i)
++    {
++        if (i + 1 >= std::size(fmt) || static_cast<unsigned>(format[i]) > 0x7f)
++            return -1;
++        fmt[i] = static_cast<char>(format[i]);
++    }
++    fmt[i] = 0;
++    char out[128];
++    const int rv = std::snprintf(out, std::size(out), fmt, args...);
++    if (rv < 0 || static_cast<size_t>(rv) >= std::size(out) || static_cast<size_t>(rv) >= bufferSize)
++        return -1;
++    for (int k = 0; k <= rv; ++k)
++        buffer[k] = static_cast<unsigned char>(out[k]);
++    return rv;
++}
++#endif
++
+ template <class Num> inline
+ int saferPrintf(wchar_t* buffer, size_t bufferSize, const wchar_t* format, const Num& number)
+ {
++#ifdef __amigaos__
++    return saferPrintfW(buffer, bufferSize, format, number);
++#endif
+     return std::swprintf(buffer, bufferSize, format, number); //C99: returns number of chars written if successful, < 0 on error (including buffer too small)
+ }
+ }

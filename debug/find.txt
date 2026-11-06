@@ -1,2 +1,2 @@
-# start-up spin in the lab (6 Nov, mirror batch RAM:ffsA -> RAM:ffsB): bra.s to itself, then the next function
-60fe2f2f00102f004eb9
+# code bytes from a lab profile, one run per line; the build prints where each is
+# 6 Nov: 60fe2f2f00102f004eb9 = __vfwprintf_total_size+0x16 (libnix wide printf loops: patches/0004)
