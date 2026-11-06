@@ -1,0 +1,15 @@
+# What this port builds on: fetched at build time, never shipped.
+# FreeFileSync 14.9 (GPL 3). Its author publishes the source as a zip on
+# freefilesync.org only; this is the same source from the git mirror that
+# carries each release as one commit (tag v14.9).
+FFS_VERSION=14.9
+FFS_GIT=https://github.com/hkneptune/FreeFileSync.git
+FFS_COMMIT=bcba63f87e3973e405fb1390a93e70affe1b0ced
+# Our own pieces, fetched at these commits
+# GFOpenWX Toolkit with wx's aui library (branch team3/wx-aui-20261105)
+WXT_REPO=https://github.com/DalsinAI/gfopenwxtoolkit
+WXT_COMMIT=7fb2de8eb56eac123103f5cbff0cd787ab937268   # main, toolkit PR #4
+WXT_SDK_JOB=j20261106T064303-a75b2e   # that toolkit's SDK, built by the Audacity lab job (used when it is on this host)
+# fpuauto (common/fpuauto): the FPU when there is one (main, PR #629 merged)
+FPA_REPO=https://github.com/DalsinAI/amicradle-guest
+FPA_COMMIT=462f3a3ccb4cea314e1bb7f7cfaebda266073233

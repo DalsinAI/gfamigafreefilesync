@@ -1,0 +1,103 @@
+diff --git a/FreeFileSync/Source/RealTimeSync/application.cpp b/FreeFileSync/Source/RealTimeSync/application.cpp
+index 9dce27c..2b54fff 100644
+--- a/FreeFileSync/Source/RealTimeSync/application.cpp
++++ b/FreeFileSync/Source/RealTimeSync/application.cpp
+@@ -134,10 +134,12 @@ bool Application::OnInit()
+     };
+     Bind(wxEVT_QUERY_END_SESSION, [onSystemShutdown](wxCloseEvent& event) { onSystemShutdown(); }); //can veto
+     Bind(wxEVT_END_SESSION,       [onSystemShutdown](wxCloseEvent& event) { onSystemShutdown(); }); //can *not* veto
++#ifndef __amigaos__ //no SIGTERM on AmigaOS: nothing sends it, and libnix's signal() refuses it
+     if (auto /*sighandler_t n.a. on macOS*/ oldHandler = ::signal(SIGTERM, onSystemShutdown);//"graceful" exit requested, unlike SIGKILL
+         oldHandler == SIG_ERR)
+         logExtraError(_("Error during process initialization.") + L"\n\n" + formatSystemError("signal(SIGTERM)", getLastError()));
+     else assert(!oldHandler);
++#endif
+ 
+     //Note: app start is deferred:  -> see FreeFileSync
+     CallAfter([&] { onEnterEventLoop(); });
+diff --git a/FreeFileSync/Source/application.cpp b/FreeFileSync/Source/application.cpp
+index 1605a09..c6f565d 100644
+--- a/FreeFileSync/Source/application.cpp
++++ b/FreeFileSync/Source/application.cpp
+@@ -197,10 +197,12 @@ bool Application::OnInit()
+     //- Windows sends WM_QUERYENDSESSION, WM_ENDSESSION during log off, *not* WM_CLOSE https://devblogs.microsoft.com/oldnewthing/20080421-00/?p=22663
+     //   => "taskkill sending WM_CLOSE (without /f)" is a misguided app simulating a button-click on X
+     //      -> should send WM_QUERYENDSESSION instead!
++#ifndef __amigaos__ //no SIGTERM on AmigaOS: nothing sends it, and libnix's signal() refuses it
+     if (auto /*sighandler_t n.a. on macOS*/ oldHandler = ::signal(SIGTERM, onSystemShutdown);//"graceful" exit requested, unlike SIGKILL
+         oldHandler == SIG_ERR)
+         logExtraError(_("Error during process initialization.") + L"\n\n" + formatSystemError("signal(SIGTERM)", getLastError()));
+     else assert(!oldHandler);
++#endif
+ 
+     //Note: app start is deferred: batch mode requires the wxApp eventhandler to be established for UI update events. This is not the case at the time of OnInit()!
+     CallAfter([&] { onEnterEventLoop(); });
+diff --git a/FreeFileSync/Source/base/dir_lock.cpp b/FreeFileSync/Source/base/dir_lock.cpp
+index f674ccd..5872b82 100644
+--- a/FreeFileSync/Source/base/dir_lock.cpp
++++ b/FreeFileSync/Source/base/dir_lock.cpp
+@@ -130,8 +130,13 @@ private:
+ //return ppid on Windows, sid on Linux/Mac, "no value" if process corresponding to "processId" is not existing
+ std::optional<SessionId> getSessionId(ProcessId processId) //throw FileError
+ {
++#ifdef __amigaos__ //a pid is the process's Task: it lives while exec still lists it
++    if (!gfffs_task_exists(processId))
++        return {};
++#else
+     if (::kill(processId, 0) != 0) //sig == 0: no signal sent, just existence check
+         return {};
++#endif
+ 
+     const pid_t procSid = ::getsid(processId); //NOT to be confused with "login session", e.g. not stable on OS X!!!
+     if (procSid < 0) //pids are never negative, empiric proof: https://linux.die.net/man/2/wait
+diff --git a/zen/file_io.cpp b/zen/file_io.cpp
+index 0a119b4..24a7654 100644
+--- a/zen/file_io.cpp
++++ b/zen/file_io.cpp
+@@ -233,6 +233,9 @@ FileOutputPlain::~FileOutputPlain()
+     if (getHandle() != invalidFileHandle) //not finalized => clean up garbage
+         try
+         {
++#ifdef __amigaos__ //AmigaDOS won't delete an open file (ERROR_OBJECT_IN_USE): close it first
++            try { close(); /*throw FileError*/ } catch (const FileError&) {}
++#endif
+             //"deleting while handle is open" == FILE_FLAG_DELETE_ON_CLOSE
+             if (::unlink(getFilePath().c_str()) != 0)
+                 THROW_LAST_SYS_ERROR("unlink");
+diff --git a/zen/file_path.h b/zen/file_path.h
+index 63b4da3..94631c8 100644
+--- a/zen/file_path.h
++++ b/zen/file_path.h
+@@ -33,8 +33,11 @@ std::optional<Zstring> getParentFolderPath(const Zstring& itemPath);
+ #ifdef __amigaos__ //"RAM:name": the volume's colon ends a path component too
+ inline Zstring getItemName(const Zstring& itemPath)
+ {
+-    const size_t pos = itemPath.find_last_of(Zstr("/:"));
+-    return pos == Zstring::npos ? itemPath : itemPath.substr(pos + 1);
++    const Zchar* const b = itemPath.c_str();
++    size_t n = itemPath.size();
++    while (n > 0 && b[n - 1] != Zstr('/') && b[n - 1] != Zstr(':'))
++        --n;
++    return Zstring(b + n);
+ }
+ #else
+ inline Zstring getItemName(const Zstring& itemPath) { return afterLast(itemPath, FILE_NAME_SEPARATOR, IfNotFoundReturn::all); }
+diff --git a/zen/format_unit.cpp b/zen/format_unit.cpp
+index 2053e4d..b39db1a 100644
+--- a/zen/format_unit.cpp
++++ b/zen/format_unit.cpp
+@@ -170,7 +170,14 @@ std::wstring zen::formatNumber(int64_t n)
+ {
+     //::setlocale (LC_ALL, ""); -> see localization.cpp::wxWidgetsLocale
+     static_assert(sizeof(long long int) == sizeof(n));
++#ifdef __amigaos__ //libnix's printf has no ' flag: group the digits here
++    std::wstring s = numberTo<std::wstring>(n);
++    for (size_t i = s.size(), d = (s.empty() || s[0] != L'-') ? 0 : 1; i > d + 3; )
++        s.insert(i -= 3, 1, L',');
++    return s;
++#else
+     return printNumber<std::wstring>(L"%'lld", n); //considers grouping (')
++#endif
+ }
+ 
+ 

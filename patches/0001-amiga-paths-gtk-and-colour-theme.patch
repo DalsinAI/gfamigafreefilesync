@@ -1,0 +1,180 @@
+diff --git a/FreeFileSync/Source/application.cpp b/FreeFileSync/Source/application.cpp
+index 2042dbe..b7b695f 100644
+--- a/FreeFileSync/Source/application.cpp
++++ b/FreeFileSync/Source/application.cpp
+@@ -125,6 +125,7 @@ bool Application::OnInit()
+     try { imageResourcesInit(appendPath(getResourceDirPath(), Zstr("Icons.zip"))); }
+     catch (const FileError& e) { logExtraError(e.toString()); } //not critical in this context
+ 
++#ifdef __WXGTK__
+     //GTK should already have been initialized by wxWidgets (see \src\gtk\app.cpp:wxApp::Initialize)
+     auto loadCSS = [&](const char* fileName)
+     {
+@@ -157,6 +158,7 @@ bool Application::OnInit()
+         }
+         catch (const SysError& e2) { logExtraError(_("Failed to update the color theme.") + L"\n\n" + e2.toString()); }
+     }
++#endif
+ 
+     /* we're a GUI app: ignore SIGHUP when the parent terminal quits! (or process is killed!)
+         => the FFS launcher will still be killed => fine
+diff --git a/FreeFileSync/Source/ffs_paths.cpp b/FreeFileSync/Source/ffs_paths.cpp
+index 01a9a69..4b13368 100644
+--- a/FreeFileSync/Source/ffs_paths.cpp
++++ b/FreeFileSync/Source/ffs_paths.cpp
+@@ -30,6 +30,10 @@ Zstring getProcessParentFolderPath()
+             assert(getItemType(                     processPath)  != ItemType::symlink); //throw FileError
+             assert(getItemType(*getParentFolderPath(processPath)) != ItemType::symlink); //throw FileError
+ 
++#ifdef __amigaos__
++            //AmigaOS: the program sits in its drawer with Resources/ beside it
++            return *getParentFolderPath(processPath);
++#endif
+             return *getParentFolderPath(*getParentFolderPath(processPath)); //no parent folder!!? => let it crash!
+         }
+         catch (const FileError& e)
+diff --git a/FreeFileSync/Source/ui/folder_history_box.cpp b/FreeFileSync/Source/ui/folder_history_box.cpp
+index d5cb410..ca71211 100644
+--- a/FreeFileSync/Source/ui/folder_history_box.cpp
++++ b/FreeFileSync/Source/ui/folder_history_box.cpp
+@@ -44,8 +44,10 @@ FolderHistoryBox::FolderHistoryBox(wxWindow* parent,
+     //2. even if we handle "drag-data-received" for "text/uri-list" this doesn't consider logic in dirname.cpp
+     //=> disable all drop events on the text control (disables text drop, too, but not a big loss)
+     //=> all drops are nicely propagated as regular file drop events like they should have been in the first place!
++#ifdef __WXGTK__
+     if (GtkWidget* widget = GetConnectWidget())
+         ::gtk_drag_dest_unset(widget);
++#endif
+ }
+ 
+ 
+diff --git a/wx+/darkmode.cpp b/wx+/darkmode.cpp
+index c4a3758..e5990a0 100644
+--- a/wx+/darkmode.cpp
++++ b/wx+/darkmode.cpp
+@@ -15,6 +15,9 @@ using namespace zen;
+ 
+ bool zen::darkModeAvailable()
+ {
++#ifdef __WXOPENLAYOUT__
++    return false; //AmigaOS: the colours are the Look GFOpenPrefs chose
++#endif
+     return true;
+ 
+ }
+@@ -86,10 +89,12 @@ void zen::changeColorTheme(ColorTheme colTheme) //throw FileError
+     try
+     {
+         ZEN_ON_SCOPE_SUCCESS(refGlobalColorHook() = std::make_unique<SysColorsHook>()); //*after* SetAppearance()
++#ifndef __WXOPENLAYOUT__
+         if (wxApp::AppearanceResult rv = wxTheApp->SetAppearance(colTheme);
+             rv != wxApp::AppearanceResult::Ok)
+             throw SysError(formatSystemError("wxApp::SetAppearance",
+                                              rv == wxApp::AppearanceResult::CannotChange ? L"CannotChange" : L"Failure", L"" /*errorMsg*/));
++#endif
+     }
+     catch (const SysError& e) { throw FileError(_("Failed to update the color theme."), e.toString()); }
+ }
+diff --git a/wx+/darkmode.h b/wx+/darkmode.h
+index 91d2a78..87907a6 100644
+--- a/wx+/darkmode.h
++++ b/wx+/darkmode.h
+@@ -16,7 +16,11 @@ namespace zen
+ bool darkModeAvailable();
+ 
+ //support not only "dark mode" but dark themes in general
++#ifdef __WXOPENLAYOUT__
++enum class ColorTheme { System, Light, Dark }; //wx 3.3's wxApp::Appearance; the openlayout toolkit is wx 3.2
++#else
+ using ColorTheme = wxApp::Appearance; //why reinvent the wheel?
++#endif
+ 
+ void colorThemeInit(wxApp& app, ColorTheme colTheme); //throw FileError
+ void colorThemeCleanup();
+diff --git a/zen/file_path.cpp b/zen/file_path.cpp
+index ecf8794..ca64608 100644
+--- a/zen/file_path.cpp
++++ b/zen/file_path.cpp
+@@ -33,6 +33,18 @@ std::optional<PathComponents> zen::parsePathComponents(const Zstring& itemPath)
+ 
+     std::optional<PathComponents> pc; //"/media/zenju/" and "/Volumes/" should not fail to parse
+ 
++#ifdef __amigaos__
++    //AmigaOS: "Volume:dir/file", "DH0:", "PROGDIR:x" - the root is the name up to and including the colon
++    if (const auto itColon = std::find(itemPath.begin(), itemPath.end(), Zstr(':'));
++        itColon != itemPath.end() && itColon != itemPath.begin() && std::find(itemPath.begin(), itColon, FILE_NAME_SEPARATOR) == itColon)
++    {
++        Zstring relPath(itColon + 1, itemPath.end());
++        trim(relPath, TrimSide::both, [](Zchar c) { return c == FILE_NAME_SEPARATOR; });
++        return PathComponents{Zstring(itemPath.begin(), itColon + 1), std::move(relPath)};
++    }
++    return pc;
++#endif
++
+     if (!pc && startsWith(itemPath, "/mnt/")) //e.g. /mnt/DEVICE_NAME
+         pc = doParse(3 /*sepCountVolumeRoot*/, false /*rootWithSep*/);
+ 
+@@ -87,6 +99,10 @@ Zstring zen::appendSeparator(Zstring path) //support rvalue references!
+ {
+     assert(!endsWith(path, FILE_NAME_SEPARATOR == Zstr('/') ? Zstr('\\' ) : Zstr('/' )));
+ 
++#ifdef __amigaos__
++    if (endsWith(path, Zstr(':'))) //"Work:" is a root: "Work:/" would be its parent
++        return path;
++#endif
+     if (!endsWith(path, FILE_NAME_SEPARATOR))
+         path += FILE_NAME_SEPARATOR;
+     return path; //returning a by-value parameter => RVO if possible, r-value otherwise!
+@@ -117,6 +133,10 @@ Zstring zen::appendPath(const Zstring& basePath, const Zstring& relPath)
+ 
+     if (endsWith(basePath, FILE_NAME_SEPARATOR))
+         return basePath + relPath;
++#ifdef __amigaos__
++    if (endsWith(basePath, Zstr(':')))
++        return basePath + relPath;
++#endif
+ 
+     Zstring output = basePath;
+     output.reserve(basePath.size() + 1 + relPath.size());     //append all three strings using a single memory allocation
+@@ -150,7 +170,11 @@ std::weak_ordering zen::compareNativePath(const Zstring& lhs, const Zstring& rhs
+     assert(!contains(lhs, Zchar('\0'))); //don't expect embedded nulls!
+     assert(!contains(rhs, Zchar('\0'))); //
+ 
++#ifdef __amigaos__
++    return compareNoCase(lhs, rhs); //AmigaDOS names are the same in any case
++#else
+     return lhs <=> rhs;
++#endif
+ 
+ }
+ 
+@@ -171,6 +195,12 @@ std::optional<Zstring> zen::getEnvironmentVar(const ZstringView name)
+         getenv_s() to the rescue!? not implemented on GCC, apparently *still* not threadsafe!!!
+ 
+         => *eff* this: make a global copy during start up! */
++#ifdef __amigaos__
++    //AmigaOS: no environ; getenv() reads ENV: (dos.library GetVar)
++    if (const char* val = ::getenv(Zstring(name).c_str()))
++        return Zstring(val);
++    return {};
++#endif
+     globalEnvVars.setOnce([] //don't just rely on GLOBAL_RUN_ONCE: allow calling this function at ANY time during static initialization
+     {
+         assert(runningOnMainThread());
+diff --git a/zen/resolve_path.cpp b/zen/resolve_path.cpp
+index 2f61070..6f75958 100644
+--- a/zen/resolve_path.cpp
++++ b/zen/resolve_path.cpp
+@@ -24,7 +24,12 @@ Zstring resolveRelativePath(const Zstring& relativePath)
+ 
+     Zstring pathTmp = relativePath;
+     //https://linux.die.net/man/2/path_resolution
++#ifdef __amigaos__
++    //AmigaOS: absolute names are those with a volume or assign, "Work:..."
++    if (!parsePathComponents(pathTmp))
++#else
+     if (!startsWith(pathTmp, FILE_NAME_SEPARATOR)) //absolute names are exactly those starting with a '/'
++#endif
+     {
+         /* basic support for '~': strictly speaking this is a shell-layer feature, so "realpath()" won't handle it
+             https://www.gnu.org/software/bash/manual/html_node/Tilde-Expansion.html               */

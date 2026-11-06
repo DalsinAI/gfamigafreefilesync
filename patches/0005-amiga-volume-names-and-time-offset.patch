@@ -1,0 +1,42 @@
+diff --git a/FreeFileSync/Source/application.cpp b/FreeFileSync/Source/application.cpp
+index de7a36c..1605a09 100644
+--- a/FreeFileSync/Source/application.cpp
++++ b/FreeFileSync/Source/application.cpp
+@@ -692,6 +692,17 @@ void Application::runBatchMode(const FfsBatchConfig& batchCfg, const Zstring& cf
+     }
+ 
+     std::string startTimeStr = utfTo<std::string>(formatTime(Zstr("%Y-%m-%dT%H:%M:%S%z"), getLocalTime(std::chrono::system_clock::to_time_t(r.summary.startTime))));
++#ifdef __amigaos__ //libnix's strftime has no %z: take the offset from locale.library
++    if (startTimeStr.size() < 5 || (startTimeStr[startTimeStr.size() - 5] != '+' && startTimeStr[startTimeStr.size() - 5] != '-'))
++    {
++        const time_t now = std::time(nullptr);
++        std::tm loc = *std::localtime(&now);
++        const int east = static_cast<int>((timegm(&loc) - now) / 60);
++        char tz[8];
++        std::snprintf(tz, sizeof(tz), "%c%02d%02d", east < 0 ? '-' : '+', std::abs(east) / 60, std::abs(east) % 60);
++        startTimeStr += tz;
++    }
++#endif
+     syncStats.objectVal.set("startTime", std::move(startTimeStr.insert(startTimeStr.size() - 2, ":"))); //ISO 8601 date/time with offset e.g. 2001-08-23T14:55:02+02:00
+ 
+     syncStats.objectVal.set("totalTimeSec", std::chrono::duration_cast<std::chrono::seconds>(r.summary.totalTime).count());
+diff --git a/zen/file_path.h b/zen/file_path.h
+index 9446ad7..63b4da3 100644
+--- a/zen/file_path.h
++++ b/zen/file_path.h
+@@ -30,7 +30,15 @@ struct PathComponents
+ std::optional<PathComponents> parsePathComponents(const Zstring& itemPath); //no value on error
+ 
+ std::optional<Zstring> getParentFolderPath(const Zstring& itemPath);
++#ifdef __amigaos__ //"RAM:name": the volume's colon ends a path component too
++inline Zstring getItemName(const Zstring& itemPath)
++{
++    const size_t pos = itemPath.find_last_of(Zstr("/:"));
++    return pos == Zstring::npos ? itemPath : itemPath.substr(pos + 1);
++}
++#else
+ inline Zstring getItemName(const Zstring& itemPath) { return afterLast(itemPath, FILE_NAME_SEPARATOR, IfNotFoundReturn::all); }
++#endif
+ 
+ Zstring getFileExtension(const ZstringView filePath);
+ 

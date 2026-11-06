@@ -1,0 +1,156 @@
+diff --git a/FreeFileSync/Source/application.cpp b/FreeFileSync/Source/application.cpp
+index b7b695f..ce1578c 100644
+--- a/FreeFileSync/Source/application.cpp
++++ b/FreeFileSync/Source/application.cpp
+@@ -224,7 +224,7 @@ wxLayoutDirection Application::GetLayoutDirection() const { return languageLayou
+ 
+ int Application::OnRun()
+ {
+-#if wxUSE_EXCEPTIONS
++#if wxUSE_EXCEPTIONS && !defined(__WXOPENLAYOUT__) //the toolkit is built with them: an uncaught one still ends the program
+ #error why is wxWidgets uncaught exception handling enabled!?
+ #endif
+ 
+diff --git a/FreeFileSync/Source/ui/gui_status_handler.cpp b/FreeFileSync/Source/ui/gui_status_handler.cpp
+index d68b187..02de614 100644
+--- a/FreeFileSync/Source/ui/gui_status_handler.cpp
++++ b/FreeFileSync/Source/ui/gui_status_handler.cpp
+@@ -72,7 +72,7 @@ void StatusHandlerTemporaryPanel::showStatsPanel()
+ 
+         const bool statusRowTaken = [&]
+         {
+-            for (wxAuiPaneInfo& paneInfo : mainDlg_.auiMgr_.GetAllPanes())
++            for (wxAuiPaneInfo& paneInfo : gfffsPanes(mainDlg_.auiMgr_.GetAllPanes()))
+                 //doesn't matter if paneInfo.IsShown() or not! => move down in either case!
+                 if (&paneInfo != &statusPanel &&
+                     paneInfo.dock_layer     == statusPanel.dock_layer &&
+@@ -85,7 +85,7 @@ void StatusHandlerTemporaryPanel::showStatsPanel()
+ 
+         //move all rows that are in the way one step further
+         if (statusRowTaken)
+-            for (wxAuiPaneInfo& paneInfo : mainDlg_.auiMgr_.GetAllPanes())
++            for (wxAuiPaneInfo& paneInfo : gfffsPanes(mainDlg_.auiMgr_.GetAllPanes()))
+                 if (&paneInfo != &statusPanel &&
+                     paneInfo.dock_layer     == statusPanel.dock_layer &&
+                     paneInfo.dock_direction == statusPanel.dock_direction &&
+diff --git a/FreeFileSync/Source/ui/main_dlg.cpp b/FreeFileSync/Source/ui/main_dlg.cpp
+index 8376819..b2e187b 100644
+--- a/FreeFileSync/Source/ui/main_dlg.cpp
++++ b/FreeFileSync/Source/ui/main_dlg.cpp
+@@ -1279,7 +1279,7 @@ void MainDialog::setGlobalCfgOnInit(const GlobalConfig& globalCfg)
+ 
+     //work around wxAuiManager::LoadPerspective overwriting pane captions with old values (might be different language!)
+     std::vector<std::pair<wxAuiPaneInfo*, wxString>> paneCaptions;
+-    for (wxAuiPaneInfo& paneInfo : auiMgr_.GetAllPanes())
++    for (wxAuiPaneInfo& paneInfo : gfffsPanes(auiMgr_.GetAllPanes()))
+         paneCaptions.emplace_back(&paneInfo, paneInfo.caption);
+ 
+     //compare progress dialog minimum sizes are layout-dependent + can't be changed by user => don't load stale values from config
+@@ -3145,7 +3145,7 @@ void MainDialog::onSetLayoutContext(wxMouseEvent& event)
+ 
+     bool addedSeparator = false;
+ 
+-    for (wxAuiPaneInfo& paneInfo : auiMgr_.GetAllPanes())
++    for (wxAuiPaneInfo& paneInfo : gfffsPanes(auiMgr_.GetAllPanes()))
+         if (!paneInfo.IsShown() &&
+             paneInfo.window != compareStatus_->getAsWindow() &&
+             paneInfo.window != m_panelLog                    &&
+diff --git a/FreeFileSync/Source/ui/rename_dlg.cpp b/FreeFileSync/Source/ui/rename_dlg.cpp
+index 82da547..cfbcfb6 100644
+--- a/FreeFileSync/Source/ui/rename_dlg.cpp
++++ b/FreeFileSync/Source/ui/rename_dlg.cpp
+@@ -8,6 +8,7 @@
+ #include <chrono>
+ //#include <zen/file_path.h>
+ #include <wx/valtext.h>
++#include <wx/caret.h>
+ #include <wx+/window_tools.h>
+ #include <wx+/image_resources.h>
+ #include "gui_generated.h"
+diff --git a/FreeFileSync/Source/ui/small_dlgs.cpp b/FreeFileSync/Source/ui/small_dlgs.cpp
+index 5d93bb8..9aeb69f 100644
+--- a/FreeFileSync/Source/ui/small_dlgs.cpp
++++ b/FreeFileSync/Source/ui/small_dlgs.cpp
+@@ -1562,7 +1562,9 @@ OptionsDlg::OptionsDlg(wxWindow* parent, GlobalConfig& globalCfg) :
+ 
+         class : public wxGridColumnHeaderRendererDefault
+         {
++#ifndef __WXOPENLAYOUT__ //wx 3.3
+             void DrawHighlighted(const wxGrid& grid, wxDC& dc, wxRect& rect, int col, int flags) const override { DrawBorder(grid, dc, rect); }
++#endif
+         } colRenderNoHighlight_;
+     };
+     m_gridCustomCommand->GetTable()->SetAttrProvider(new wxGridCellAttrProviderNoColHighlight);
+diff --git a/wx+/darkmode.cpp b/wx+/darkmode.cpp
+index e5990a0..08bfbe9 100644
+--- a/wx+/darkmode.cpp
++++ b/wx+/darkmode.cpp
+@@ -56,7 +56,11 @@ void zen::colorThemeInit(wxApp& app, ColorTheme colTheme) //throw FileError
+ {
+     assert(!refGlobalColorHook());
+ 
++#ifdef __WXOPENLAYOUT__
++    globalDefaultThemeIsDark = wxSystemSettings::GetAppearance().IsDark(); //wx 3.2
++#else
+     globalDefaultThemeIsDark = wxSystemSettings::GetAppearance().AreAppsDark();
++#endif
+     ZEN_ON_SCOPE_EXIT(if (!refGlobalColorHook()) refGlobalColorHook() = std::make_unique<SysColorsHook>()); //*after* SetAppearance() and despite errors
+ 
+     //caveat: on macOS there are more themes than light/dark: https://developer.apple.com/documentation/appkit/nsappearance/name-swift.struct
+diff --git a/wx+/dc.h b/wx+/dc.h
+index bf62374..a2fa7dd 100644
+--- a/wx+/dc.h
++++ b/wx+/dc.h
+@@ -333,7 +333,9 @@ public:
+     {
+         assert(wnd.IsDoubleBuffered());
+         dc_.emplace<wxPaintDC>(&wnd);
++#ifndef __WXOPENLAYOUT__ //wx 3.3
+         static_cast<wxDC&>(*this).DisableAutomaticBoundingBoxUpdates(); //MOOOAAAR perf!?
++#endif
+     }
+ 
+     operator wxDC& ()
+diff --git a/wx+/grid.cpp b/wx+/grid.cpp
+index 343e943..d0f30ba 100644
+--- a/wx+/grid.cpp
++++ b/wx+/grid.cpp
+@@ -2044,6 +2044,16 @@ void Grid::showScrollBars(Grid::ScrollBarStatus horizontal, Grid::ScrollBarStatu
+     showScrollbarH_ = horizontal;
+     showScrollbarV_ = vertical;
+ 
++#ifdef __WXOPENLAYOUT__
++    auto mapStatus = [](ScrollBarStatus sbStatus)
++    {
++        return sbStatus == SB_SHOW_ALWAYS ? wxSHOW_SB_ALWAYS : sbStatus == SB_SHOW_NEVER ? wxSHOW_SB_NEVER : wxSHOW_SB_DEFAULT;
++    };
++    wxScrolledWindow::ShowScrollbars(mapStatus(horizontal), mapStatus(vertical));
++    updateWindowSizes();
++    return;
++#endif
++#ifdef __WXGTK__
+     //the following wxGTK approach is pretty much identical to wxWidgets 2.9 ShowScrollbars() code!
+ 
+     auto mapStatus = [](ScrollBarStatus sbStatus) -> GtkPolicyType
+@@ -2066,6 +2076,7 @@ void Grid::showScrollBars(Grid::ScrollBarStatus horizontal, Grid::ScrollBarStatu
+     ::gtk_scrolled_window_set_policy(scrollWin,
+                                      mapStatus(horizontal),
+                                      mapStatus(vertical));
++#endif
+ 
+     updateWindowSizes();
+ }
+diff --git a/wx+/window_tools.h b/wx+/window_tools.h
+index be66bac..8fc7462 100644
+--- a/wx+/window_tools.h
++++ b/wx+/window_tools.h
+@@ -97,7 +97,9 @@ void fixSpinCtrl(wxSpinCtrl& spinCtrl)
+     //-----------------------------------------------------------------------
+     //there's no way to set width using GTK's CSS! =>
+     spinCtrl.InvalidateBestSize();
++#ifdef __WXGTK__
+     ::gtk_entry_set_width_chars(GTK_ENTRY(spinCtrl.m_widget), 3);
++#endif
+ 
+ #if 0 //apparently not needed!?
+     if (::gtk_check_version(3, 12, 0) == NULL)
