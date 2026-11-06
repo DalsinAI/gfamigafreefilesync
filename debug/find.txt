@@ -1,0 +1,2 @@
+# start-up spin in the lab (6 Nov, mirror batch RAM:ffsA -> RAM:ffsB): bra.s to itself, then the next function
+60fe2f2f00102f004eb9
