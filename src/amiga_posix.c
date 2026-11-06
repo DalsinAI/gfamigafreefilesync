@@ -8,6 +8,7 @@
 #include <proto/dos.h>
 #include <dos/dos.h>
 #include <dos/dosextens.h>
+#include <exec/execbase.h>
 
 /* seconds from 1 Jan 1970 to 1 Jan 1978, the AmigaOS date's start */
 #define AMIGA_EPOCH 252460800L
@@ -124,4 +125,24 @@ time_t timegm(struct tm* tm)
 pid_t getsid(pid_t pid)
 {
     return pid == 0 ? getpid() : pid;
+}
+
+static int inList(struct List* l, struct Node* t)
+{
+    struct Node* n;
+    for (n = l->lh_Head; n->ln_Succ; n = n->ln_Succ)
+        if (n == t) return 1;
+    return 0;
+}
+
+int gfffs_task_exists(pid_t pid)
+{
+    struct Node* t = (struct Node*)pid;
+    int found;
+    if (pid == 0) return 0;
+    if ((struct Task*)t == FindTask(NULL)) return 1;
+    Forbid(); /* only compares addresses: the pid is never read through */
+    found = inList(&SysBase->TaskReady, t) || inList(&SysBase->TaskWait, t);
+    Permit();
+    return found;
 }
