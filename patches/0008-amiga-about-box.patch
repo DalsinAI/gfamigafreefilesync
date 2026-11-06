@@ -1,0 +1,57 @@
+diff --git a/FreeFileSync/Source/ui/small_dlgs.cpp b/FreeFileSync/Source/ui/small_dlgs.cpp
+index 9aeb69f..fb834cc 100644
+--- a/FreeFileSync/Source/ui/small_dlgs.cpp
++++ b/FreeFileSync/Source/ui/small_dlgs.cpp
+@@ -11,6 +11,7 @@
+ #include <zen/build_info.h>
+ #include <zen/file_io.h>
+ #include <wx/wupdlock.h>
++#include <wx/filefn.h>
+ #include <wx/filedlg.h>
+ #include <wx/sound.h>
+ #include <wx+/context_menu.h>
+@@ -136,9 +137,18 @@ AboutDlg::AboutDlg(wxWindow* parent) : AboutDlgGenerated(parent)
+ 
+     wxImage::AddHandler(new wxJPEGHandler /*ownership passed*/); //activate support for .jpg files
+ 
++#ifdef __amigaos__ //Animal.dat ships with FreeFileSync's own builds only, not its source: no picture then
++    const wxString animalPath = utfTo<wxString>(appendPath(getResourceDirPath(), Zstr("Animal.dat")));
++    wxImage animalImg;
++    if (wxFileExists(animalPath))
++        animalImg.LoadFile(animalPath, wxBITMAP_TYPE_JPEG);
++    if (animalImg.IsOk())
++        convertToVanillaImage(animalImg);
++#else
+     wxImage animalImg(utfTo<wxString>(appendPath(getResourceDirPath(), Zstr("Animal.dat"))), wxBITMAP_TYPE_JPEG);
+     convertToVanillaImage(animalImg);
+     assert(animalImg.IsOk());
++#endif
+ 
+     //--------------------------------------------------------------------------
+     //have animal + text match *final* dialog width
+@@ -153,6 +163,9 @@ AboutDlg::AboutDlg(wxWindow* parent) : AboutDlgGenerated(parent)
+         const int imageWidth = (m_panelDonate->GetSize().GetWidth() - 5 - 5 - 5 /* grey border*/) / 2;
+         const int textWidth  =  m_panelDonate->GetSize().GetWidth() - 5 - 5 - 5 - imageWidth;
+ 
++#ifdef __amigaos__
++        if (animalImg.IsOk())
++#endif
+         setImage(*m_bitmapAnimalSmall, shrinkImage(animalImg, wxsizeToScreen(imageWidth), -1 /*maxHeight*/));
+ 
+         m_staticTextDonate->Show();
+diff --git a/zen/build_info.h b/zen/build_info.h
+index 86ff303..f417f40 100644
+--- a/zen/build_info.h
++++ b/zen/build_info.h
+@@ -27,7 +27,11 @@ static_assert((BuildArch::program == BuildArch::bit32 ? 32 : 64) == sizeof(void*
+ 
+ 
+ //harmonize with os_arch enum in update_checks table:
++#ifdef __mc68000__
++constexpr const char* cpuArchName = "m68k";
++#else
+ constexpr const char* cpuArchName = BuildArch::program == BuildArch::bit32 ? "i686": "x86-64";
++#endif
+ 
+ }
+ 
