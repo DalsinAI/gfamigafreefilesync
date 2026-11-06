@@ -142,6 +142,10 @@ rc=$?
 set -e
 echo "objects: $(ls "$O"/*.o 2>/dev/null | wc -l) of $(sed -n 's/^APPOBJS =//p' "$M" | wc -w)"
 grep -E ': (fatal )?error|Error [0-9]' "$O/make.log" | sort | uniq | head -150
+if [ "$rc" != 0 ]; then
+    for f in $(sed -n 's/^APPOBJS =//p' "$M"); do [ -f "$O/$f" ] || echo "missing: $f"; done
+    echo "--- make.log tail"; tail -n 20 "$O/make.log"
+fi
 [ "$rc" = 0 ] || { [ "$rc" = 124 ] && echo "out of time: run again to go on"; echo "compile: $(( $(date +%s) - t0 )) s"; exit "$rc"; }
 
 # --- the link: soft-float specs, then fpuauto's ------------------------------
