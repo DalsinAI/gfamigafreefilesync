@@ -9,6 +9,7 @@ FFS_COMMIT=bcba63f87e3973e405fb1390a93e70affe1b0ced
 # GFOpenWX Toolkit with wx's aui library (branch team3/wx-aui-20261105)
 WXT_REPO=https://github.com/DalsinAI/gfopenwxtoolkit
 WXT_COMMIT=7fb2de8eb56eac123103f5cbff0cd787ab937268   # main, toolkit PR #4
+WXT_SDK_JOB=j20261106T064303-a75b2e   # that toolkit's SDK, built by the Audacity lab job (used when it is on this host)
 # fpuauto (common/fpuauto): the FPU when there is one (main, PR #629 merged)
 FPA_REPO=https://github.com/DalsinAI/amicradle-guest
 FPA_COMMIT=462f3a3ccb4cea314e1bb7f7cfaebda266073233

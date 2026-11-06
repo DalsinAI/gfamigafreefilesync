@@ -40,6 +40,21 @@ fetch() {
 # --- the toolkit's SDK, again only when its tree changed ---------------------
 if [ -z "${WXT_SRC:-}" ]; then fetch gfopenwxtoolkit "$WXT_REPO" "$WXT_COMMIT"; WXT_SRC="$WORK/deps/gfopenwxtoolkit"; fi
 WXB="$WORK/gfopenwx"
+# a toolkit SDK another job built (WXT_SDK_JOB in ffs.lock): the stove's
+# 900 s don't cover a toolkit build and FreeFileSync in one run
+SDKT="$OUT/../../${WXT_SDK_JOB:-none}/out/gfopenwx-sdk.tar.gz"
+if [ -n "${WXT_SDK_JOB:-}" ] && [ -f "$SDKT" ]; then
+    WXS="$WORK/gfopenwx-sdk-$WXT_SDK_JOB"
+    if [ ! -f "$WXS/.done" ]; then
+        rm -rf "$WXS"; mkdir -p "$WXS"; tar xzf "$SDKT" -C "$WXS"; touch "$WXS/.done"
+    fi
+    WXC=$(find "$WXS" -name wx-config -type f | head -1)
+    ZLIBI=$(dirname "$(find "$WXS" -name zlib.h | head -1)")
+    # wx 3.2.12's own zlib headers, from an earlier toolkit build here
+    [ -f "$ZLIBI/zlib.h" ] || ZLIBI=$(ls -d "$WXB"/wxWidgets-*/src/zlib 2>/dev/null | head -1)
+    echo "toolkit: SDK of $WXT_SDK_JOB ($WXC, zlib $ZLIBI)"
+fi
+if [ -z "${WXC:-}" ]; then
 WXREV=$( (git -C "$WXT_SRC" rev-parse HEAD 2>/dev/null; git -C "$WXT_SRC" diff HEAD 2>/dev/null) | sha256sum | cut -c1-16)
 if [ ! -x "$WXB/out/sdk/bin/wx-config" ] || [ "$(cat "$WXB/out/.rev" 2>/dev/null)" != "$WXREV" ]; then
     STOVE="$STOVE" WORK="$WXB" OUT="$WXB/out" JOBS=$JOBS sh "$WXT_SRC/build-amiga.sh" > "$WORK.wx.log" 2>&1 || { tail -40 "$WORK.wx.log"; exit 1; }
@@ -49,6 +64,8 @@ fi
 echo "toolkit: $(( $(date +%s) - t0 )) s"
 WXC="$WXB/out/sdk/bin/wx-config"
 ZLIBI=$(ls -d "$WXB"/wxWidgets-*/src/zlib | head -1)
+fi
+[ -f "$ZLIBI/zlib.h" ] || { echo "no zlib.h ($ZLIBI)"; [ -n "${WXS:-}" ] && (cd "$WXS" && find . -maxdepth 3 | head -40); exit 1; }
 
 # --- fpuauto: libfpuauto.a and its link specs ---------------------------------
 fetch fpuauto "$FPA_REPO" "$FPA_COMMIT" "/common/fpuauto/"
