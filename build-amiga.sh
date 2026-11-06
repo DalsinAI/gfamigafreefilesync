@@ -84,16 +84,32 @@ fi
 SRC="$WORK/FreeFileSync"
 PSUM=$(cat "$HERE"/patches/*.patch | sha256sum | cut -c1-16)
 if [ "$(cat "$SRC/.patched" 2>/dev/null)" != "$FFS_COMMIT-$PSUM" ]; then
-    rm -rf "$SRC"; mkdir -p "$SRC"
-    git -C "$SRC" init -q
-    git -C "$SRC" fetch -q --depth 1 "$FFS_GIT" "$FFS_COMMIT"
-    git -C "$SRC" checkout -q FETCH_HEAD
-    [ "$(git -C "$SRC" rev-parse HEAD)" = "$FFS_COMMIT" ] || { echo "commit mismatch"; exit 1; }
+    # patch a fresh tree, then copy over only the files that differ, so the
+    # objects (and their -MMD dependencies) of untouched sources are kept
+    NEW="$WORK/FreeFileSync.new"
+    rm -rf "$NEW"; mkdir -p "$NEW"
+    git -C "$NEW" init -q
+    git -C "$NEW" fetch -q --depth 1 "$FFS_GIT" "$FFS_COMMIT"
+    git -C "$NEW" checkout -q FETCH_HEAD
+    [ "$(git -C "$NEW" rev-parse HEAD)" = "$FFS_COMMIT" ] || { echo "commit mismatch"; exit 1; }
     for p in "$HERE"/patches/*.patch; do
-        patch -s -d "$SRC" -p1 < "$p" || { echo "patch failed: $p"; exit 1; }
+        patch -s -d "$NEW" -p1 < "$p" || { echo "patch failed: $p"; exit 1; }
     done
+    if [ -d "$SRC/.git" ] && [ "$(git -C "$SRC" rev-parse HEAD 2>/dev/null)" = "$FFS_COMMIT" ]; then
+        n=0
+        for f in $(cd "$NEW" && find . -path ./.git -prune -o -type f -print); do
+            cmp -s "$NEW/$f" "$SRC/$f" || { mkdir -p "$(dirname "$SRC/$f")"; cp "$NEW/$f" "$SRC/$f"; n=$((n + 1)); }
+        done
+        for f in $(cd "$SRC" && find . -path ./.git -prune -o -type f -print); do
+            [ "$f" = ./.patched ] || [ -e "$NEW/$f" ] || { rm -f "$SRC/$f"; n=$((n + 1)); }
+        done
+        rm -rf "$NEW"
+        echo "sources: $n files changed by the patches"
+    else
+        rm -rf "$SRC"; mv "$NEW" "$SRC"
+        rm -rf "$WORK/obj"
+    fi
     echo "$FFS_COMMIT-$PSUM" > "$SRC/.patched"
-    rm -rf "$WORK/obj"
 fi
 
 # --- one Makefile: FreeFileSync's sources (its own Makefile's list, less the
