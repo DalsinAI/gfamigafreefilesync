@@ -64,6 +64,24 @@ index 0a119b4..24a7654 100644
              //"deleting while handle is open" == FILE_FLAG_DELETE_ON_CLOSE
              if (::unlink(getFilePath().c_str()) != 0)
                  THROW_LAST_SYS_ERROR("unlink");
+diff --git a/zen/file_path.h b/zen/file_path.h
+index 63b4da3..94631c8 100644
+--- a/zen/file_path.h
++++ b/zen/file_path.h
+@@ -33,8 +33,11 @@ std::optional<Zstring> getParentFolderPath(const Zstring& itemPath);
+ #ifdef __amigaos__ //"RAM:name": the volume's colon ends a path component too
+ inline Zstring getItemName(const Zstring& itemPath)
+ {
+-    const size_t pos = itemPath.find_last_of(Zstr("/:"));
+-    return pos == Zstring::npos ? itemPath : itemPath.substr(pos + 1);
++    const Zchar* const b = itemPath.c_str();
++    size_t n = itemPath.size();
++    while (n > 0 && b[n - 1] != Zstr('/') && b[n - 1] != Zstr(':'))
++        --n;
++    return Zstring(b + n);
+ }
+ #else
+ inline Zstring getItemName(const Zstring& itemPath) { return afterLast(itemPath, FILE_NAME_SEPARATOR, IfNotFoundReturn::all); }
 diff --git a/zen/format_unit.cpp b/zen/format_unit.cpp
 index 2053e4d..b39db1a 100644
 --- a/zen/format_unit.cpp
