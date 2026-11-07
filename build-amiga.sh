@@ -178,6 +178,7 @@ for r in Icons.zip Languages.zip bell.wav bell2.wav ding.wav fail.wav fail2.wav 
 done
 python3 -I "$HERE/scripts/make-icon.py" "$D/FreeFileSync.info"
 cp "$HERE/README.md" "$D/ReadMe"; cp "$HERE/LICENSE" "$D/LICENSE"
+mkdir -p "$D/Rexx"; cp "$HERE"/Rexx/*.rexx "$D/Rexx/"   # the ARexx example (README: ARexx)
 ls -l "$D" "$D/Resources"
 echo "fpuauto: $(m68k-amigaos-nm "$O/FreeFileSync.debug" | grep -c ' T ___wrap_') wrapped routines"
 # a lab hang: debug/find.txt holds code bytes from the runtime's profile

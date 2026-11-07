@@ -51,6 +51,8 @@ ADDRESS 'FREEFILESYNC.1'
 'SYNC'
 ```
 
+`Rexx/Sync.rexx` (in the package's Rexx drawer) is an example.
+
 ## Installing
 
 Unpack `GFAmigaFreeFileSync-0.1.0-RC1.lha` anywhere (`lha x GFAmigaFreeFileSync-0.1.0-RC1.lha Work:`) and double-click `FreeFileSync`, or start it from a Shell. A batch job runs with its file as the argument: `FreeFileSync Work:Jobs/mirror.ffs_batch`. FreeFileSync keeps its settings and logs in `Settings/` inside its drawer.
