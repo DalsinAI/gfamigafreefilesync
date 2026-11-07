@@ -23,11 +23,33 @@ The first run fetches the GFOpenWX Toolkit and fpuauto at the commits `ffs.lock`
 | Where | What |
 |---|---|
 | `patches/` | FreeFileSync's own files: Amiga paths (`Work:Dir/File`, names the same in any case), the program's drawer, GTK's calls left out, the colours from the GFOpenPrefs Look |
-| `src/` | in place of FreeFileSync's Linux files: system information, running commands (SystemTags, Workbench's "open"), the recycle bin (the volume's Trashcan drawer), icons, task priority; the network parts left out (`net_none.cpp`) |
+| `src/` | in place of FreeFileSync's Linux files: system information, running commands (SystemTags, Workbench's "open"), the recycle bin (the volume's Trashcan drawer), icons, task priority, the ARexx port (`rexx_amiga.cpp`); the network parts left out (`net_none.cpp`) |
 | `src/amiga_glib.c`, `src/amiga_posix.c` | the GLib and POSIX calls FreeFileSync makes that AmigaOS and libnix lack: case and Unicode forms of names, file dates through SetFileDate, free space through Info |
 | `compat/include/` | the headers those calls need, and a plain-text stand-in for wxRichTextCtrl |
 | `scripts/` | the 68040 soft-float link specs, the tool icon |
 | `tools/` | the release archive, packed with AmiCradle's own LhA writer |
+
+## ARexx
+
+FreeFileSync has an ARexx port, `FREEFILESYNC.1` (`FREEFILESYNC.2` for a second copy), from the GFOpenWX Toolkit's `wxARexxPort` on arexx.class (`src/rexx_amiga.cpp`, patch 0009).
+
+| Command | Does |
+| --- | --- |
+| `OPEN FILE/A` | load a configuration (`.ffs_gui` or `.ffs_batch`) |
+| `COMPARE` | compare, as the Compare button; answers once done |
+| `SYNC` | synchronise, as the Synchronize button; answers once done |
+| `BUSY` | RESULT: 1 while comparing or synchronising, else 0 |
+| `QUIT`, `ACTIVATE`, `DEACTIVATE`, `VERSION`, `HELP`, `FAULT` | the toolkit's standard commands |
+
+While a comparison or a synchronisation runs, `OPEN`, `COMPARE` and `SYNC` answer RC 10.
+
+```
+/* FreeFileSync: back up Work: */
+ADDRESS 'FREEFILESYNC.1'
+'OPEN Work:Backup.ffs_gui'
+'COMPARE'
+'SYNC'
+```
 
 ## Installing
 
