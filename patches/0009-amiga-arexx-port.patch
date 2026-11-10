@@ -1,0 +1,27 @@
+AmigaOS: the ARexx port FREEFILESYNC.1 opens with the main window (src/rexx_amiga.cpp).
+
+--- a/FreeFileSync/Source/ui/main_dlg.cpp	2026-11-07 13:47:19.228735663 +0000
++++ b/FreeFileSync/Source/ui/main_dlg.cpp	2026-11-07 13:47:19.267076760 +0000
+@@ -549,6 +549,10 @@
+                         bool startComparison)
+ {
+     MainDialog* mainDlg = new MainDialog(guiCfg, cfgFilePaths, globalCfg, globalCfgFilePath);
++#ifdef __AMIGA__
++    void amigaRexxStart(MainDialog* dlg); //src/rexx_amiga.cpp
++    amigaRexxStart(mainDlg);
++#endif
+ 
+     //avoid Windows 10 white flash when showing dark mode window: https://chromium-review.googlesource.com/c/chromium/src/+/6092335
+ #if 0 //variant 1: works, but no fade-in animation
+--- a/FreeFileSync/Source/ui/main_dlg.h	2026-03-29 17:31:12.000000000 +0000
++++ b/FreeFileSync/Source/ui/main_dlg.h	2026-11-07 13:47:19.263859435 +0000
+@@ -57,6 +57,9 @@
+     template <class GuiPanel>
+     friend class FolderPairCallback;
+     friend class PanelMoveWindow;
++#ifdef __AMIGA__
++    friend class AmigaRexx; //src/rexx_amiga.cpp: the ARexx port
++#endif
+ 
+     class UiInputDisabler;
+ 
