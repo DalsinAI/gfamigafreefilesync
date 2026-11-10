@@ -112,6 +112,13 @@ if [ "$(cat "$SRC/.patched" 2>/dev/null)" != "$FFS_COMMIT-$PSUM" ]; then
     echo "$FFS_COMMIT-$PSUM" > "$SRC/.patched"
 fi
 
+# objects made against another toolkit commit go (ARexx rule 7): its
+# headers are not in the make rules, and stale objects crash at start
+# (gfamigagolly #3)
+if [ "$(cat "$WORK/.toolkit-objs" 2>/dev/null)" != "$WXT_COMMIT" ]; then
+    rm -rf "$WORK/obj"
+    echo "$WXT_COMMIT" > "$WORK/.toolkit-objs"
+fi
 # --- one Makefile: FreeFileSync's sources (its own Makefile's list, less the
 # network and Linux-only files src/ replaces) and ours ------------------------
 FS="$SRC/FreeFileSync/Source"
@@ -179,6 +186,7 @@ done
 python3 -I "$HERE/scripts/make-icon.py" "$D/FreeFileSync.info"
 cp "$HERE/README.md" "$D/ReadMe"; cp "$HERE/LICENSE" "$D/LICENSE"
 mkdir -p "$D/Rexx"; cp "$HERE"/Rexx/*.rexx "$D/Rexx/"   # the ARexx example (README: ARexx)
+mkdir -p "$D/tests"; cp "$HERE/tests/arexx.rexx" "$D/tests/"   # the ARexx port test
 ls -l "$D" "$D/Resources"
 echo "fpuauto: $(m68k-amigaos-nm "$O/FreeFileSync.debug" | grep -c ' T ___wrap_') wrapped routines"
 # a lab hang: debug/find.txt holds code bytes from the runtime's profile
