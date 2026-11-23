@@ -4,6 +4,10 @@ FreeFileSync for AmigaOS 3 (68040, soft float with the FPU taken when there is o
 
 FreeFileSync 14.9 is fetched at build time at the commit `ffs.lock` pins, and `patches/` is applied to it; nothing third-party is kept in this repository.
 
+## Needs
+
+`gfopenlayout.library` 12 or later in `LIBS:`. FreeFileSync's windows are drawn by GFOpenLayout through that library, not a copy built into the program (GFOffice Libs ships version 25). Without it FreeFileSync says "This needs gfopenlayout.library 12 or later in LIBS:" and stops.
+
 ## Status
 
 0.1.0 RC1 (6 November 2026). Lab-tested on AmigaOS 3.2 (68040): a batch mirror between two folders, a second sync after changes (only the changed files go), and the main window.
